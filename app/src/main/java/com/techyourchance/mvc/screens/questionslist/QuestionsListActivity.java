@@ -43,7 +43,6 @@ public class QuestionsListActivity extends BaseActivity implements QuestionsList
     @Override
     protected void onStart() {
         super.onStart();
-        mViewMvc.sho
         fetchQuestions();
     }
 

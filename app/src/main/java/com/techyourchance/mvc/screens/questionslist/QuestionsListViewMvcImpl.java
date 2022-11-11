@@ -17,8 +17,8 @@ import java.util.List;
 public class QuestionsListViewMvcImpl extends BaseObservableViewMvc<QuestionsListViewMvc.Listener>
         implements QuestionsListViewMvc, QuestionsRecyclerAdapter.Listener {
 
-    private RecyclerView mRecyclerQuestions;
-    private QuestionsRecyclerAdapter mAdapter;
+    private final RecyclerView mRecyclerQuestions;
+    private final QuestionsRecyclerAdapter mAdapter;
 
     public QuestionsListViewMvcImpl(LayoutInflater inflater, @Nullable ViewGroup parent, ViewMvcFactory viewMvcFactory) {
         setRootView(inflater.inflate(R.layout.layout_questions_list, parent, false));
