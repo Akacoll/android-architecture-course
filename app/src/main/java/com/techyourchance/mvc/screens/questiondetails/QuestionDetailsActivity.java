@@ -11,6 +11,7 @@ import com.techyourchance.mvc.R;
 import com.techyourchance.mvc.networking.QuestionDetailsResponseSchema;
 import com.techyourchance.mvc.networking.QuestionSchema;
 import com.techyourchance.mvc.networking.StackoverflowApi;
+import com.techyourchance.mvc.questions.FetchQuestionDetailsUseCase;
 import com.techyourchance.mvc.questions.Question;
 import com.techyourchance.mvc.questions.QuestionDetails;
 import com.techyourchance.mvc.screens.common.BaseActivity;
@@ -21,18 +22,18 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class QuestionDetailsActivity extends BaseActivity implements QuestionsListItemViewMvc.Listener {
+public class QuestionDetailsActivity extends BaseActivity implements FetchQuestionDetailsUseCase.Listener {
 
     public static final String EXTRA_QUESTION_ID = "EXTRA_QUESTION_ID";
 
-    private StackoverflowApi mStackoverflowApi;
+    private FetchQuestionDetailsUseCase mFetchQuestionDetailsUseCase;
 
     private QuestionDetailsViewMvc mViewMvc;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mStackoverflowApi = getCompositionRoot().getStackoverflowApi();
+        mFetchQuestionDetailsUseCase = getCompositionRoot().getFetchQuestionDetailsUseCase();
         mViewMvc = getCompositionRoot().getViewMvcFactory().getQuestionDetailsViewMvc(null);
 
         setContentView(mViewMvc.getRootView());
@@ -47,46 +48,34 @@ public class QuestionDetailsActivity extends BaseActivity implements QuestionsLi
     @Override
     protected void onStart() {
         super.onStart();
+        mFetchQuestionDetailsUseCase.registerListener(this);
         mViewMvc.showProgressIndication();
-        String questionId = getIntent().getStringExtra(EXTRA_QUESTION_ID);
-        fetchQuestionDetails(questionId);
-    }
-
-    private void fetchQuestionDetails(String questionId) {
-        mStackoverflowApi.fetchQuestionDetails(questionId)
-                .enqueue(new Callback<QuestionDetailsResponseSchema>() {
-                    @Override
-                    public void onResponse(Call<QuestionDetailsResponseSchema> call, Response<QuestionDetailsResponseSchema> response) {
-                        if (response.isSuccessful() && response.body() != null) {
-                            bindQuestionDetails(response.body().getQuestion());
-                        } else {
-                            networkCallFailed();
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<QuestionDetailsResponseSchema> call, Throwable t) {
-                        networkCallFailed();
-                    }
-                });
-    }
-
-    private void bindQuestionDetails(QuestionSchema questionSchema) {
-        mViewMvc.hideProgressIndication();
-        QuestionDetails questionDetails = new QuestionDetails(
-                questionSchema.getId(),
-                questionSchema.getTitle(),
-                questionSchema.getBody()
-        );
-        mViewMvc.bindQuestion(questionDetails);
-    }
-
-    private void networkCallFailed() {
-        Toast.makeText(this, R.string.error_network_call_failed, Toast.LENGTH_SHORT).show();
+        mFetchQuestionDetailsUseCase.fetchQuestionsDetailsAndNotify(getQuestionId());
     }
 
     @Override
-    public void onQuestionClicked(Question question) {
+    protected void onStop() {
+        super.onStop();
+        mFetchQuestionDetailsUseCase.unregisterListener(this);
+    }
 
+    private String getQuestionId() {
+        return getIntent().getStringExtra(EXTRA_QUESTION_ID);
+    }
+
+    private void bindQuestionDetails(QuestionDetails questionDetails) {
+        mViewMvc.hideProgressIndication();
+        mViewMvc.bindQuestion(questionDetails);
+    }
+
+    @Override
+    public void onQuestionDetailsFetched(QuestionDetails questionDetails) {
+        bindQuestionDetails(questionDetails);
+    }
+
+    @Override
+    public void onQuestionDetailsFetchFailed() {
+        mViewMvc.hideProgressIndication();
+        Toast.makeText(this, R.string.error_network_call_failed, Toast.LENGTH_SHORT).show();
     }
 }

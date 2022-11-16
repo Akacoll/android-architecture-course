@@ -6,7 +6,7 @@ import com.techyourchance.mvc.screens.common.ViewMvc;
 public interface QuestionDetailsViewMvc extends ViewMvc {
     void showProgressIndication();
 
-    void bindQuestion(QuestionDetails question);
-
     void hideProgressIndication();
+
+    void bindQuestion(QuestionDetails question);
 }

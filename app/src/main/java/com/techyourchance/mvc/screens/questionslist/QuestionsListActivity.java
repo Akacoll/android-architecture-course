@@ -9,6 +9,7 @@ import com.techyourchance.mvc.common.Constants;
 import com.techyourchance.mvc.networking.QuestionSchema;
 import com.techyourchance.mvc.networking.QuestionsListResponseSchema;
 import com.techyourchance.mvc.networking.StackoverflowApi;
+import com.techyourchance.mvc.questions.FetchLastActiveQuestionsUseCase;
 import com.techyourchance.mvc.questions.Question;
 import com.techyourchance.mvc.screens.common.BaseActivity;
 import com.techyourchance.mvc.screens.questiondetails.QuestionDetailsActivity;
@@ -22,9 +23,9 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class QuestionsListActivity extends BaseActivity implements QuestionsListViewMvcImpl.Listener {
+public class QuestionsListActivity extends BaseActivity implements FetchLastActiveQuestionsUseCase.Listener {
 
-    private StackoverflowApi mStackoverflowApi;
+    private FetchLastActiveQuestionsUseCase mFetchLastActiveQuestionsUseCase;
 
     private QuestionsListViewMvc mViewMvc;
 
@@ -32,10 +33,8 @@ public class QuestionsListActivity extends BaseActivity implements QuestionsList
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        mFetchLastActiveQuestionsUseCase = getCompositionRoot().getFetchLastActiveQuestionsUseCase();
         mViewMvc = getCompositionRoot().getViewMvcFactory().getQuestionsListViewMvc(null);
-        mViewMvc.registerListener(this);
-
-        mStackoverflowApi = getCompositionRoot().getStackoverflowApi();
 
         setContentView(mViewMvc.getRootView());
     }
@@ -43,42 +42,34 @@ public class QuestionsListActivity extends BaseActivity implements QuestionsList
     @Override
     protected void onStart() {
         super.onStart();
-        fetchQuestions();
+        mFetchLastActiveQuestionsUseCase.registerListener(this);
+
+        mViewMvc.showProgressIndication();
+        mFetchLastActiveQuestionsUseCase.fetchLastActiveQuestionsAndNotify();
     }
 
-    private void fetchQuestions() {
-        mStackoverflowApi.fetchLastActiveQuestions(Constants.QUESTIONS_LIST_PAGE_SIZE)
-                .enqueue(new Callback<QuestionsListResponseSchema>() {
-                    @Override
-                    public void onResponse(Call<QuestionsListResponseSchema> call, Response<QuestionsListResponseSchema> response) {
-                        if (response.isSuccessful()) {
-                            bindQuestions(response.body().getQuestions());
-                        } else {
-                            networkCallFailed();
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<QuestionsListResponseSchema> call, Throwable t) {
-                        networkCallFailed();
-                    }
-                } );
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mFetchLastActiveQuestionsUseCase.unregisterListener(this);
     }
 
-    private void bindQuestions(List<QuestionSchema> questionSchemas) {
-        List<Question> questions = new ArrayList<>(questionSchemas.size());
-        for (QuestionSchema questionSchema : questionSchemas) {
-            questions.add(new Question(questionSchema.getId(), questionSchema.getTitle()));
+    private void bindQuestions(List<Question> questions) {
+        mViewMvc.hideProgressIndication();
+        for (Question question : questions) {
+            questions.add(new Question(question.getId(), question.getTitle()));
         }
         mViewMvc.bindQuestions(questions);
     }
 
-    private void networkCallFailed() {
-        Toast.makeText(this, R.string.error_network_call_failed, Toast.LENGTH_SHORT).show();
+    @Override
+    public void onLastActiveQuestionsFetched(List<Question> questions) {
+        bindQuestions(questions);
     }
 
     @Override
-    public void onQuestionClicked(Question question) {
-        QuestionDetailsActivity.start(this, question.getId());
+    public void onLastActiveQuestionsFetchFailed() {
+        mViewMvc.hideProgressIndication();
+        Toast.makeText(this, R.string.error_network_call_failed, Toast.LENGTH_SHORT).show();
     }
 }
